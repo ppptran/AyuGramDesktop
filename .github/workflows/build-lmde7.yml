@@ -16,7 +16,8 @@ jobs:
           dotnet: true
           haskell: true
           large-packages: true
-          swap: true
+          swap-storage: true
+          docker-images: true
 
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -64,10 +65,15 @@ jobs:
                 ..
 
               ninja
+
+              echo "=== Build output ==="
+              find . -type f -executable
           EOF
 
       - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
-          name: AyuGram-LMDE7-Final
-          path: build/AyuGram
+          name: AyuGram-LMDE7
+          path: |
+            build/**/AyuGram
+            build/**/Telegram
