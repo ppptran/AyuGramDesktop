@@ -1,0 +1,99 @@
+name: Package AyuGram AppImage (from cache)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  appimage:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    permissions:
+      contents: write
+
+    steps:
+    # --------------------------------------------------
+    # Checkout (chỉ để lấy icon + desktop file)
+    # --------------------------------------------------
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # --------------------------------------------------
+    # Lấy version (phải giống workflow build .deb)
+    # --------------------------------------------------
+    - name: Get version
+      run: |
+        TAG=$(git describe --tags --abbrev=0)
+        VERSION=${TAG#v}
+        echo "TAG=$TAG" >> $GITHUB_ENV
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+    # --------------------------------------------------
+    # Restore cache đã build
+    # --------------------------------------------------
+    - name: Restore AyuGram binary cache
+      uses: actions/cache@v4
+      with:
+        path: out
+        key: ayugram-out-${{ runner.os }}-${{ env.VERSION }}
+        restore-keys: |
+          ayugram-out-${{ runner.os }}-
+
+    # --------------------------------------------------
+    # Kiểm tra binary
+    # --------------------------------------------------
+    - name: Verify binary
+      run: |
+        test -f out/Release/AyuGram
+        chmod +x out/Release/AyuGram
+
+    # --------------------------------------------------
+    # Build AppImage
+    # --------------------------------------------------
+    - name: Build AppImage
+      run: |
+        sudo apt update
+        sudo apt install -y wget fuse
+
+        wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+        chmod +x appimagetool-x86_64.AppImage
+
+        mkdir -p AppDir/usr/bin \
+                 AppDir/usr/share/applications \
+                 AppDir/usr/share/icons/hicolor/256x256/apps
+
+        cp out/Release/AyuGram AppDir/usr/bin/ayugram
+        cp Telegram/Resources/art/icon256.png \
+           AppDir/usr/share/icons/hicolor/256x256/apps/ayugram.png
+
+        cat > AppDir/usr/share/applications/ayugram.desktop <<EOF
+        [Desktop Entry]
+        Name=AyuGram
+        Exec=ayugram
+        Icon=ayugram
+        Type=Application
+        Categories=Network;InstantMessaging;
+        EOF
+
+        cat > AppDir/AppRun <<'EOF'
+        #!/bin/sh
+        HERE="$(dirname "$(readlink -f "$0")")"
+        exec "$HERE/usr/bin/ayugram" "$@"
+        EOF
+        chmod +x AppDir/AppRun
+
+        ./appimagetool-x86_64.AppImage AppDir AyuGram-${VERSION}-x86_64.AppImage
+
+    # --------------------------------------------------
+    # Release
+    # --------------------------------------------------
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: appimage-${{ env.TAG }}
+        name: AyuGram ${{ env.VERSION }} AppImage
+        body: |
+          AyuGram AppImage
+          Commit: ${{ env.COMMIT }}
+        files: AyuGram-${{ env.VERSION }}-x86_64.AppImage
