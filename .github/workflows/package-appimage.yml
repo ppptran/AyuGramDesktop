@@ -12,7 +12,7 @@ jobs:
 
     steps:
     # --------------------------------------------------
-    # Checkout (chỉ để lấy icon, desktop file nếu cần)
+    # Checkout (lấy icon)
     # --------------------------------------------------
     - name: Checkout repo
       uses: actions/checkout@v4
@@ -20,7 +20,7 @@ jobs:
         fetch-depth: 0
 
     # --------------------------------------------------
-    # Lấy version (PHẢI trùng workflow build .deb)
+    # Get version (PHẢI trùng workflow build .deb)
     # --------------------------------------------------
     - name: Get version
       run: |
@@ -31,7 +31,7 @@ jobs:
         echo "COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
     # --------------------------------------------------
-    # Restore cache binary đã build
+    # Restore cache binary
     # --------------------------------------------------
     - name: Restore AyuGram build cache
       uses: actions/cache@v4
@@ -42,18 +42,15 @@ jobs:
           ayugram-out-${{ runner.os }}-
 
     # --------------------------------------------------
-    # Verify binary tồn tại
+    # Verify binary
     # --------------------------------------------------
     - name: Verify binary
       run: |
-        if [ ! -f out/Release/AyuGram ]; then
-          echo "::error::Binary out/Release/AyuGram not found. Cache miss."
-          exit 1
-        fi
+        test -f out/Release/AyuGram
         chmod +x out/Release/AyuGram
 
     # --------------------------------------------------
-    # Build AppImage (KHÔNG build lại)
+    # Build AppImage
     # --------------------------------------------------
     - name: Build AppImage
       run: |
@@ -72,11 +69,14 @@ jobs:
         cp out/Release/AyuGram AppDir/usr/bin/ayugram
         chmod +x AppDir/usr/bin/ayugram
 
-        # Icon
+        # Icon (ROOT AppDir — BẮT BUỘC)
+        cp Telegram/Resources/art/icon256.png AppDir/ayugram.png
+
+        # Icon (desktop Linux)
         cp Telegram/Resources/art/icon256.png \
            AppDir/usr/share/icons/hicolor/256x256/apps/ayugram.png
 
-        # Desktop file MUST be at AppDir root
+        # Desktop file (ROOT AppDir — BẮT BUỘC)
         cat > AppDir/ayugram.desktop <<EOF
         [Desktop Entry]
         Name=AyuGram
@@ -87,7 +87,7 @@ jobs:
         StartupWMClass=AyuGram
         EOF
 
-        # Copy desktop file to standard location too
+        # Copy desktop file to standard location
         cp AppDir/ayugram.desktop AppDir/usr/share/applications/
 
         # AppRun
@@ -102,7 +102,7 @@ jobs:
         ./appimagetool-x86_64.AppImage AppDir AyuGram-${VERSION}-x86_64.AppImage
 
     # --------------------------------------------------
-    # GitHub Release
+    # Release
     # --------------------------------------------------
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
