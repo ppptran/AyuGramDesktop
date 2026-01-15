@@ -12,14 +12,15 @@ jobs:
 
     steps:
     # --------------------------------------------------
-    # Checkout (chỉ để lấy icon + desktop file)
+    # Checkout (chỉ để lấy icon, desktop file nếu cần)
     # --------------------------------------------------
-    - uses: actions/checkout@v4
+    - name: Checkout repo
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
     # --------------------------------------------------
-    # Lấy version (phải giống workflow build .deb)
+    # Lấy version (PHẢI trùng workflow build .deb)
     # --------------------------------------------------
     - name: Get version
       run: |
@@ -30,9 +31,9 @@ jobs:
         echo "COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
     # --------------------------------------------------
-    # Restore cache đã build
+    # Restore cache binary đã build
     # --------------------------------------------------
-    - name: Restore AyuGram binary cache
+    - name: Restore AyuGram build cache
       uses: actions/cache@v4
       with:
         path: out
@@ -41,15 +42,18 @@ jobs:
           ayugram-out-${{ runner.os }}-
 
     # --------------------------------------------------
-    # Kiểm tra binary
+    # Verify binary tồn tại
     # --------------------------------------------------
     - name: Verify binary
       run: |
-        test -f out/Release/AyuGram
+        if [ ! -f out/Release/AyuGram ]; then
+          echo "::error::Binary out/Release/AyuGram not found. Cache miss."
+          exit 1
+        fi
         chmod +x out/Release/AyuGram
 
     # --------------------------------------------------
-    # Build AppImage
+    # Build AppImage (KHÔNG build lại)
     # --------------------------------------------------
     - name: Build AppImage
       run: |
@@ -59,23 +63,34 @@ jobs:
         wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
         chmod +x appimagetool-x86_64.AppImage
 
+        # AppDir layout
         mkdir -p AppDir/usr/bin \
                  AppDir/usr/share/applications \
                  AppDir/usr/share/icons/hicolor/256x256/apps
 
+        # Binary
         cp out/Release/AyuGram AppDir/usr/bin/ayugram
+        chmod +x AppDir/usr/bin/ayugram
+
+        # Icon
         cp Telegram/Resources/art/icon256.png \
            AppDir/usr/share/icons/hicolor/256x256/apps/ayugram.png
 
-        cat > AppDir/usr/share/applications/ayugram.desktop <<EOF
+        # Desktop file MUST be at AppDir root
+        cat > AppDir/ayugram.desktop <<EOF
         [Desktop Entry]
         Name=AyuGram
         Exec=ayugram
         Icon=ayugram
         Type=Application
         Categories=Network;InstantMessaging;
+        StartupWMClass=AyuGram
         EOF
 
+        # Copy desktop file to standard location too
+        cp AppDir/ayugram.desktop AppDir/usr/share/applications/
+
+        # AppRun
         cat > AppDir/AppRun <<'EOF'
         #!/bin/sh
         HERE="$(dirname "$(readlink -f "$0")")"
@@ -83,10 +98,11 @@ jobs:
         EOF
         chmod +x AppDir/AppRun
 
+        # Build AppImage
         ./appimagetool-x86_64.AppImage AppDir AyuGram-${VERSION}-x86_64.AppImage
 
     # --------------------------------------------------
-    # Release
+    # GitHub Release
     # --------------------------------------------------
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
