@@ -61,4 +61,73 @@ jobs:
           sudo apt update
           sudo apt install -y fakeroot dpkg-dev
 
-      - name: Verify Docker availa
+      - name: Verify Docker availability
+        run: |
+          docker --version
+          docker info | head -n 20
+
+      - name: Build AyuGram binary (CentOS Docker)
+        run: |
+          docker run --rm \
+            -v "$PWD:/usr/src/tdesktop" \
+            ghcr.io/telegramdesktop/tdesktop/centos_env:latest \
+            bash -c "
+              /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
+                -D TDESKTOP_API_ID=2040 \
+                -D TDESKTOP_API_HASH=b18441a1ff607e10a989891a5462e627
+            "
+
+      - name: Prepare Debian package structure
+        run: |
+          PKG=ayugram_${VERSION}_amd64
+
+          mkdir -p $PKG/DEBIAN
+          mkdir -p $PKG/usr/bin
+          mkdir -p $PKG/usr/share/applications
+          mkdir -p $PKG/usr/share/icons/hicolor/256x256/apps
+
+          cp out/Release/AyuGram $PKG/usr/bin/ayugram
+          chmod 755 $PKG/usr/bin/ayugram
+
+          cat > $PKG/usr/share/applications/ayugram.desktop <<EOF
+          [Desktop Entry]
+          Name=AyuGram
+          Comment=Telegram Desktop client
+          Exec=ayugram
+          Icon=ayugram
+          Terminal=false
+          Type=Application
+          Categories=Network;InstantMessaging;
+          StartupWMClass=AyuGram
+          EOF
+
+          cp Telegram/Resources/art/icon256.png \
+             $PKG/usr/share/icons/hicolor/256x256/apps/ayugram.png
+
+          cat > $PKG/DEBIAN/control <<EOF
+          Package: ayugram
+          Version: ${VERSION}
+          Section: net
+          Priority: optional
+          Architecture: amd64
+          Depends: libc6, libstdc++6, libgcc-s1, libglib2.0-0, libx11-6, libxcb1, libxrender1, libxkbcommon0, libdbus-1-3
+          Maintainer: AyuGram
+          Description: AyuGram Desktop
+           AyuGram is a custom Telegram Desktop client.
+          EOF
+
+      - name: Build .deb package
+        run: |
+          fakeroot dpkg-deb --build ayugram_${VERSION}_amd64
+          ls -lh *.deb
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: deb-${{ env.TAG }}
+          name: AyuGram ${{ env.VERSION }} (.deb)
+          body: |
+            AyuGram Debian package
+            Version: ${{ env.VERSION }}
+            Commit: ${{ env.UPSTREAM_COMMIT }}
+          files: ayugram_${{ env.VERSION }}_amd64.deb
