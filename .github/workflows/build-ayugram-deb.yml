@@ -27,7 +27,6 @@ jobs:
       - name: Robust submodule fix & update
         run: |
           set -e
-
           git submodule init
 
           git config submodule.Telegram/lib_ui.url https://github.com/desktop-app/lib_ui.git
@@ -40,7 +39,7 @@ jobs:
           if git submodule update --init --recursive; then
             echo "Submodules updated normally"
           else
-            echo "Fallback: checkout default branches"
+            echo "Fallback submodule fix"
             git submodule foreach --recursive '
               git fetch origin || true
               git checkout origin/HEAD || git checkout main || git checkout master || true
@@ -56,22 +55,20 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "UPSTREAM_COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
-      - name: Install packaging tools (NO docker install)
+      - name: Install packaging tools
         run: |
           sudo apt update
           sudo apt install -y fakeroot dpkg-dev
 
-      - name: Verify Docker availability
-        run: |
-          docker --version
-          docker info | head -n 20
-
-      - name: Build AyuGram binary (CentOS Docker)
+      - name: Build AyuGram binary (CentOS Docker, root)
         run: |
           docker run --rm \
+            -u root \
             -v "$PWD:/usr/src/tdesktop" \
             ghcr.io/telegramdesktop/tdesktop/centos_env:latest \
             bash -c "
+              mkdir -p /usr/src/tdesktop/out &&
+              chown -R root:root /usr/src/tdesktop &&
               /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
                 -D TDESKTOP_API_ID=2040 \
                 -D TDESKTOP_API_HASH=b18441a1ff607e10a989891a5462e627
