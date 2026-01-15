@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Giải phóng dung lượng runner
       - name: Free Disk Space (Maximize)
         uses: jlumbroso/free-disk-space@main
         with:
@@ -16,24 +17,30 @@ jobs:
           dotnet: true
           haskell: true
           large-packages: true
-          swap-storage: true
           docker-images: true
+          swap-storage: true
 
+      # 2. Checkout source AyuGram
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 1
 
-      - name: Build in Docker (Debian Trixie)
+      # 3. Build trong Docker Debian (gần LMDE 7 nhất)
+      - name: Build AyuGram in Docker (Debian)
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/sources \
             -w /sources \
             debian:trixie \
-            /bin/bash -eux << 'EOF'
+            bash -c "
+              set -eux
+
+              echo '== Update system =='
               apt-get update
 
+              echo '== Install build dependencies =='
               apt-get install -y \
                 build-essential cmake ninja-build git pkg-config \
                 qt6-base-dev qt6-base-private-dev \
@@ -51,6 +58,7 @@ jobs:
                 libminizip-dev libproxy-dev \
                 libcrypto++-dev libicu-dev
 
+              echo '== Configure project =='
               mkdir -p build
               cd build
 
@@ -64,24 +72,24 @@ jobs:
                 -DDESKTOP_APP_DISABLE_WAYLAND_INTEGRATION=OFF \
                 ..
 
+              echo '== Build =='
               ninja
 
-                  echo "=== Build tree ==="
-                  ls -R build | head -n 200
-                  
-                  BIN="build/Telegram/Telegram"
-                  
-                  if [ ! -f "$BIN" ]; then
-                    echo "❌ Binary not found at $BIN"
-                    exit 1
-                  fi
-                  
-                  mkdir -p /sources/artifact
-                  cp "$BIN" /sources/artifact/AyuGram
-                  chmod +x /sources/artifact/AyuGram
+              echo '== Verify output =='
+              ls -l build/Telegram
 
-        
+              if [ ! -f build/Telegram/Telegram ]; then
+                echo '❌ Binary build/Telegram/Telegram not found'
+                exit 1
+              fi
 
+              echo '== Prepare artifact =='
+              mkdir -p /sources/artifact
+              cp build/Telegram/Telegram /sources/artifact/AyuGram
+              chmod +x /sources/artifact/AyuGram
+            "
+
+      # 4. Upload binary
       - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
