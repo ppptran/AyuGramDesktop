@@ -38,7 +38,7 @@ jobs:
                 libhunspell-dev liblzma-dev libenchant-2-dev libwayland-dev \
                 libxxhash-dev libabsl-dev libfmt-dev libexpected-dev \
                 libpipewire-0.3-dev libxtst-dev libxext-dev libgoogle-perftools-dev \
-                libminizip-dev libproxy-dev libcrypto++-dev && \
+                libminizip-dev libproxy-dev libcrypto++-dev libicu-dev libada-dev && \
               mkdir -p build && cd build && \
               cmake -G Ninja \
                 -DCMAKE_BUILD_TYPE=Release \
@@ -46,12 +46,13 @@ jobs:
                 -DTDESKTOP_API_HASH=344583b45741c457fe1862106095a5eb \
                 -Dtg_voip_use_system_lib=OFF \
                 -Drnnoise_use_system_lib=OFF \
-                -DDESKTOP_APP_USE_PACKAGED=OFF .. && \
+                -DDESKTOP_APP_USE_PACKAGED=OFF \
+                -DDESKTOP_APP_DISABLE_WAYLAND_INTEGRATION=OFF .. && \
               ninja
             "
 
       - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
-          name: AyuGram-LMDE7-Fixed
+          name: AyuGram-LMDE7-Final
           path: build/AyuGram
