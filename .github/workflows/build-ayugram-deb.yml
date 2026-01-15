@@ -118,4 +118,18 @@ jobs:
            AyuGram is a custom Telegram Desktop client.
           EOF
 
-      - name:
+      - name: Build .deb package
+        run: |
+          fakeroot dpkg-deb --build ayugram_${VERSION}_amd64
+          ls -lh *.deb
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: deb-${{ env.TAG }}
+          name: AyuGram ${{ env.VERSION }} (.deb)
+          body: |
+            AyuGram Debian package
+            Version: ${{ env.VERSION }}
+            Commit: ${{ env.UPSTREAM_COMMIT }}
+          files: ayugram_${{ env.VERSION }}_amd64.deb
