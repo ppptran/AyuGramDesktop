@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt update
           sudo apt install -y \
@@ -35,6 +35,12 @@ jobs:
             libglib2.0-dev \
             libxkbcommon-dev \
             libdbus-1-dev
+
+      - name: Install Poetry
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install poetry
+          poetry --version
 
       - name: Prepare build environment
         run: |
