@@ -34,13 +34,11 @@ jobs:
             -v ${{ github.workspace }}:/sources \
             -w /sources \
             debian:trixie \
-            bash -c "
-              set -eux
-
-              echo '== Update system =='
+            bash -euxc $'
+              echo "== Update system =="
               apt-get update
 
-              echo '== Install dependencies =='
+              echo "== Install dependencies =="
               apt-get install -y \
                 build-essential cmake ninja-build git pkg-config \
                 qt6-base-dev qt6-base-private-dev \
@@ -58,8 +56,46 @@ jobs:
                 libminizip-dev libproxy-dev \
                 libcrypto++-dev libicu-dev
 
-              echo '== Fix git safe.directory =='
+              echo "== Fix git safe.directory =="
               git config --global --add safe.directory /sources
 
-              echo '== Init submodules =='
+              echo "== Init submodules =="
               git submodule update --init --recursive
+
+              echo "== Configure project =="
+              mkdir -p build
+              cd build
+
+              cmake -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DTDESKTOP_API_ID=173491 \
+                -DTDESKTOP_API_HASH=344583b45741c457fe1862106095a5eb \
+                -Dtg_voip_use_system_lib=OFF \
+                -Drnnoise_use_system_lib=OFF \
+                -DDESKTOP_APP_USE_PACKAGED=ON \
+                -DDESKTOP_APP_DISABLE_WAYLAND_INTEGRATION=OFF \
+                ..
+
+              echo "== Build =="
+              ninja
+
+              echo "== Verify output =="
+              ls -l build/Telegram
+
+              if [ ! -f build/Telegram/Telegram ]; then
+                echo "ERROR: build/Telegram/Telegram not found"
+                exit 1
+              fi
+
+              echo "== Prepare artifact =="
+              mkdir -p /sources/artifact
+              cp build/Telegram/Telegram /sources/artifact/AyuGram
+              chmod +x /sources/artifact/AyuGram
+            '
+
+      # 4. Upload artifact
+      - name: Upload Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: AyuGram-LMDE7
+          path: artifact/AyuGram
