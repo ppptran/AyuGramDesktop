@@ -38,14 +38,15 @@ jobs:
                 libhunspell-dev liblzma-dev libenchant-2-dev libwayland-dev \
                 libxxhash-dev libabsl-dev libfmt-dev libexpected-dev \
                 libpipewire-0.3-dev libxtst-dev libxext-dev libgoogle-perftools-dev \
-                libminizip-dev libproxy-dev libgiomm-2.4-dev libcrypto++-dev && \
+                libminizip-dev libproxy-dev libcrypto++-dev && \
               mkdir -p build && cd build && \
               cmake -G Ninja \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DTDESKTOP_API_ID=173491 \
                 -DTDESKTOP_API_HASH=344583b45741c457fe1862106095a5eb \
                 -Dtg_voip_use_system_lib=OFF \
-                -Drnnoise_use_system_lib=OFF .. && \
+                -Drnnoise_use_system_lib=OFF \
+                -DDESKTOP_APP_USE_PACKAGED=OFF .. && \
               ninja
             "
 
