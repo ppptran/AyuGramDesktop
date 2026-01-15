@@ -66,14 +66,24 @@ jobs:
 
               ninja
 
-              echo "=== Build output ==="
-              find . -type f -executable
+              echo "=== Searching for binary ==="
+              find . -type f -name "Telegram" -o -name "AyuGram" -o -name "telegram-desktop"
+
+              mkdir -p /sources/artifact
+              BIN=$(find . -type f -executable | grep -E 'Telegram|AyuGram' | head -n 1)
+
+              if [ -z "$BIN" ]; then
+                echo "❌ Binary not found"
+                exit 1
+              fi
+
+              echo "✅ Found binary: $BIN"
+              cp "$BIN" /sources/artifact/AyuGram
+              chmod +x /sources/artifact/AyuGram
           EOF
 
       - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
           name: AyuGram-LMDE7
-          path: |
-            build/**/AyuGram
-            build/**/Telegram
+          path: artifact/AyuGram
