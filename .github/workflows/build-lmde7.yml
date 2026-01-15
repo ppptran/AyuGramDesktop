@@ -1,0 +1,44 @@
+name: Build AyuGram LMDE 7
+on:
+  workflow_dispatch: # Cho phép nhấn nút build thủ công
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Build in Docker (Debian Trixie)
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/sources \
+            -w /sources \
+            debian:trixie \
+            /bin/bash -c "
+              apt-get update && \
+              apt-get install -y build-essential cmake ninja-build git pkg-config \
+                qt6-base-dev qt6-base-private-dev libqt6svg6-dev qt6-image-formats-plugins \
+                libavcodec-dev libavformat-dev libswscale-dev libtgvoip-dev \
+                libopus-dev libssl-dev libx11-xcb-dev libx11-dev libxcb-keysyms1-dev \
+                libpulse-dev libasound2-dev libva-dev libvdpau-dev libdrm-dev \
+                libhunspell-dev liblzma-dev libenchant-2-dev libwayland-dev \
+                libxxhash-dev librnnoise-dev libabsl-dev libfmt-dev libexpected-dev && \
+              mkdir -p build && cd build && \
+              cmake -G Ninja -DCMAKE_BUILD_TYPE=Release .. && \
+              ninja
+            "
+
+      - name: Upload Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: AyuGram-LMDE7-Binary
+          path: build/AyuGram
