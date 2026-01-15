@@ -1,21 +1,26 @@
 name: Build AyuGram LMDE 7
 on:
-  workflow_dispatch: # Cho phép nhấn nút build thủ công
+  workflow_dispatch:
 
 jobs:
-  build-linux:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Free Disk Space
+      - name: Free Disk Space (Maximize)
         uses: jlumbroso/free-disk-space@main
         with:
           tool-cache: true
-          
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap: true
+
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Build in Docker (Debian Trixie)
         run: |
@@ -27,18 +32,25 @@ jobs:
               apt-get update && \
               apt-get install -y build-essential cmake ninja-build git pkg-config \
                 qt6-base-dev qt6-base-private-dev libqt6svg6-dev qt6-image-formats-plugins \
-                libavcodec-dev libavformat-dev libswscale-dev libtgvoip-dev \
+                libavcodec-dev libavformat-dev libswscale-dev \
                 libopus-dev libssl-dev libx11-xcb-dev libx11-dev libxcb-keysyms1-dev \
                 libpulse-dev libasound2-dev libva-dev libvdpau-dev libdrm-dev \
                 libhunspell-dev liblzma-dev libenchant-2-dev libwayland-dev \
-                libxxhash-dev librnnoise-dev libabsl-dev libfmt-dev libexpected-dev && \
+                libxxhash-dev libabsl-dev libfmt-dev libexpected-dev \
+                libpipewire-0.3-dev libxtst-dev libxext-dev libgoogle-perftools-dev \
+                libminizip-dev libproxy-dev libgiomm-2.4-dev libcrypto++-dev && \
               mkdir -p build && cd build && \
-              cmake -G Ninja -DCMAKE_BUILD_TYPE=Release .. && \
+              cmake -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DTDESKTOP_API_ID=173491 \
+                -DTDESKTOP_API_HASH=344583b45741c457fe1862106095a5eb \
+                -Dtg_voip_use_system_lib=OFF \
+                -Drnnoise_use_system_lib=OFF .. && \
               ninja
             "
 
       - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
-          name: AyuGram-LMDE7-Binary
+          name: AyuGram-LMDE7-Fixed
           path: build/AyuGram
