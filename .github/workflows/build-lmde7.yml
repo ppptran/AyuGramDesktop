@@ -8,8 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Free disk space
-      - name: Free Disk Space (Maximize)
+      - name: Free Disk Space
         uses: jlumbroso/free-disk-space@main
         with:
           tool-cache: true
@@ -20,25 +19,21 @@ jobs:
           docker-images: true
           swap-storage: true
 
-      # 2. Checkout source
-      - name: Checkout Code
+      - name: Checkout source
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 1
 
-      # 3. Build AyuGram inside Docker (Debian)
-      - name: Build AyuGram in Docker (Debian)
+      - name: Build AyuGram (Debian)
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/sources \
             -w /sources \
             debian:trixie \
             bash -euxc $'
-              echo "== Update system =="
               apt-get update
 
-              echo "== Install dependencies =="
               apt-get install -y \
                 build-essential cmake ninja-build git pkg-config \
                 qt6-base-dev qt6-base-private-dev \
@@ -56,13 +51,9 @@ jobs:
                 libminizip-dev libproxy-dev \
                 libcrypto++-dev libicu-dev
 
-              echo "== Fix git safe.directory =="
               git config --global --add safe.directory /sources
-
-              echo "== Init submodules =="
               git submodule update --init --recursive
 
-              echo "== Configure project =="
               mkdir -p build
               cd build
 
@@ -72,28 +63,17 @@ jobs:
                 -DTDESKTOP_API_HASH=344583b45741c457fe1862106095a5eb \
                 -Dtg_voip_use_system_lib=OFF \
                 -Drnnoise_use_system_lib=OFF \
-                -DDESKTOP_APP_USE_PACKAGED=ON \
+                -DDESKTOP_APP_USE_PACKAGED=OFF \
                 -DDESKTOP_APP_DISABLE_WAYLAND_INTEGRATION=OFF \
                 ..
 
-              echo "== Build =="
               ninja
 
-              echo "== Verify output =="
-              ls -l build/Telegram
-
-              if [ ! -f build/Telegram/Telegram ]; then
-                echo "ERROR: build/Telegram/Telegram not found"
-                exit 1
-              fi
-
-              echo "== Prepare artifact =="
               mkdir -p /sources/artifact
               cp build/Telegram/Telegram /sources/artifact/AyuGram
               chmod +x /sources/artifact/AyuGram
             '
 
-      # 4. Upload artifact
       - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
