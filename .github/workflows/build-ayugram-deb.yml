@@ -15,7 +15,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Sync with upstream AyuGram
@@ -25,10 +24,32 @@ jobs:
           git checkout dev
           git reset --hard upstream/dev
 
-      - name: Init submodules
+      - name: Robust submodule fix & update
         run: |
+          set -e
+
+          echo "Initializing submodules"
+          git submodule init
+
+          echo "Fix submodule URLs (known broken refs)"
+          git config submodule.Telegram/lib_ui.url https://github.com/desktop-app/lib_ui.git
+          git config submodule.Telegram/ThirdParty/tgcalls.url https://github.com/TelegramMessenger/tgcalls.git
+          git config submodule.codegen.url https://github.com/AyuGram/codegen.git
+          git config submodule.cmake.url https://github.com/telegramdesktop/cmake_helpers.git
+
           git submodule sync --recursive
-          git submodule update --init --force --recursive
+
+          echo "Try normal update"
+          if git submodule update --init --recursive; then
+            echo "Submodules updated normally"
+          else
+            echo "Fallback: checkout default branches"
+            git submodule foreach --recursive '
+              git fetch origin || true
+              git checkout origin/HEAD || git checkout main || git checkout master || true
+            '
+            git submodule update --init --force --recursive
+          fi
 
       - name: Get version from tag
         run: |
@@ -38,7 +59,7 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "UPSTREAM_COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
-      - name: Install build dependencies
+      - name: Install host dependencies
         run: |
           sudo apt update
           sudo apt install -y docker.io fakeroot dpkg-dev
@@ -97,18 +118,4 @@ jobs:
            AyuGram is a custom Telegram Desktop client.
           EOF
 
-      - name: Build .deb package
-        run: |
-          fakeroot dpkg-deb --build ayugram_${VERSION}_amd64
-          ls -lh *.deb
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: deb-${{ env.TAG }}
-          name: AyuGram ${{ env.VERSION }} (.deb)
-          body: |
-            AyuGram Debian package
-            Version: ${{ env.VERSION }}
-            Commit: ${{ env.UPSTREAM_COMMIT }}
-          files: ayugram_${{ env.VERSION }}_amd64.deb
+      - name:
