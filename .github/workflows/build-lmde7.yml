@@ -63,13 +63,15 @@ jobs:
               cd build
 
               cmake -G Ninja \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DTDESKTOP_API_ID=173491 \
-                -DTDESKTOP_API_HASH=344583b45741c457fe1862106095a5eb \
-                -Dtg_voip_use_system_lib=OFF \
-                -Drnnoise_use_system_lib=OFF \
-                -DDESKTOP_APP_USE_PACKAGED=OFF \
-                -DDESKTOP_APP_DISABLE_WAYLAND_INTEGRATION=OFF \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DTDESKTOP_API_ID=173491 \
+              -DTDESKTOP_API_HASH=344583b45741c457fe1862106095a5eb \
+              -Dtg_voip_use_system_lib=OFF \
+              -Drnnoise_use_system_lib=OFF \
+              -DDESKTOP_APP_USE_PACKAGED=ON \
+              -DDESKTOP_APP_DISABLE_WAYLAND_INTEGRATION=OFF \
+              
+
                 ..
 
               echo '== Build =='
