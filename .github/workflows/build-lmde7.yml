@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Giải phóng dung lượng runner
+      # 1. Free disk space
       - name: Free Disk Space (Maximize)
         uses: jlumbroso/free-disk-space@main
         with:
@@ -20,14 +20,14 @@ jobs:
           docker-images: true
           swap-storage: true
 
-      # 2. Checkout source AyuGram
+      # 2. Checkout source
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 1
 
-      # 3. Build trong Docker Debian (gần LMDE 7 nhất)
+      # 3. Build AyuGram inside Docker (Debian)
       - name: Build AyuGram in Docker (Debian)
         run: |
           docker run --rm \
@@ -40,7 +40,7 @@ jobs:
               echo '== Update system =='
               apt-get update
 
-              echo '== Install build dependencies =='
+              echo '== Install dependencies =='
               apt-get install -y \
                 build-essential cmake ninja-build git pkg-config \
                 qt6-base-dev qt6-base-private-dev \
@@ -63,15 +63,13 @@ jobs:
               cd build
 
               cmake -G Ninja \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DTDESKTOP_API_ID=173491 \
-              -DTDESKTOP_API_HASH=344583b45741c457fe1862106095a5eb \
-              -Dtg_voip_use_system_lib=OFF \
-              -Drnnoise_use_system_lib=OFF \
-              -DDESKTOP_APP_USE_PACKAGED=ON \
-              -DDESKTOP_APP_DISABLE_WAYLAND_INTEGRATION=OFF \
-              
-
+                -DCMAKE_BUILD_TYPE=Release \
+                -DTDESKTOP_API_ID=173491 \
+                -DTDESKTOP_API_HASH=344583b45741c457fe1862106095a5eb \
+                -Dtg_voip_use_system_lib=OFF \
+                -Drnnoise_use_system_lib=OFF \
+                -DDESKTOP_APP_USE_PACKAGED=ON \
+                -DDESKTOP_APP_DISABLE_WAYLAND_INTEGRATION=OFF \
                 ..
 
               echo '== Build =='
@@ -81,7 +79,7 @@ jobs:
               ls -l build/Telegram
 
               if [ ! -f build/Telegram/Telegram ]; then
-                echo '❌ Binary build/Telegram/Telegram not found'
+                echo '❌ build/Telegram/Telegram not found'
                 exit 1
               fi
 
@@ -91,7 +89,7 @@ jobs:
               chmod +x /sources/artifact/AyuGram
             "
 
-      # 4. Upload binary
+      # 4. Upload artifact
       - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
