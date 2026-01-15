@@ -1,30 +1,39 @@
-name: Build AyuGram .deb (Debian / Linux Mint)
+name: Build AyuGram .deb (cached)
 
 on:
   workflow_dispatch:
 
 jobs:
   build-deb:
-    name: Build AyuGram DEB
     runs-on: ubuntu-22.04
+    timeout-minutes: 1440
     permissions:
       contents: write
-    timeout-minutes: 1440
 
     steps:
-      - name: Checkout repository
+      # ------------------------------------------------------------
+      # Checkout
+      # ------------------------------------------------------------
+      - name: Checkout repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: false
 
-      - name: Sync with upstream AyuGram
+      # ------------------------------------------------------------
+      # Sync upstream AyuGram
+      # ------------------------------------------------------------
+      - name: Sync upstream AyuGram
         run: |
           git remote add upstream https://github.com/AyuGram/AyuGramDesktop.git || true
           git fetch upstream --tags
           git checkout dev
           git reset --hard upstream/dev
 
-      - name: Robust submodule fix & update
+      # ------------------------------------------------------------
+      # Fix & update submodules (robust)
+      # ------------------------------------------------------------
+      - name: Fix submodules
         run: |
           set -e
           git submodule init
@@ -39,7 +48,7 @@ jobs:
           if git submodule update --init --recursive; then
             echo "Submodules updated normally"
           else
-            echo "Fallback submodule fix"
+            echo "Retry submodules with fallback..."
             git submodule foreach --recursive '
               git fetch origin || true
               git checkout origin/HEAD || git checkout main || git checkout master || true
@@ -47,7 +56,10 @@ jobs:
             git submodule update --init --force --recursive
           fi
 
-      - name: Get version from tag
+      # ------------------------------------------------------------
+      # Get version
+      # ------------------------------------------------------------
+      - name: Get version
         run: |
           TAG=$(git describe --tags --abbrev=0)
           VERSION=${TAG#v}
@@ -55,26 +67,66 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "UPSTREAM_COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
+      # ------------------------------------------------------------
+      # Cache build output (out/)
+      # ------------------------------------------------------------
+      - name: Cache build output
+        uses: actions/cache@v4
+        with:
+          path: out
+          key: ayugram-out-${{ runner.os }}-${{ env.VERSION }}
+          restore-keys: |
+            ayugram-out-${{ runner.os }}-
+
+      # ------------------------------------------------------------
+      # Cache ccache
+      # ------------------------------------------------------------
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-${{ runner.os }}-${{ env.VERSION }}
+          restore-keys: |
+            ccache-${{ runner.os }}-
+
+      # ------------------------------------------------------------
+      # Install packaging tools
+      # ------------------------------------------------------------
       - name: Install packaging tools
         run: |
           sudo apt update
           sudo apt install -y fakeroot dpkg-dev
 
-      - name: Build AyuGram binary (CentOS Docker, root)
+      # ------------------------------------------------------------
+      # Build AyuGram (Docker + ccache)
+      # ------------------------------------------------------------
+      - name: Build AyuGram binary
         run: |
           docker run --rm \
             -u root \
+            -e CCACHE_DIR=/usr/src/tdesktop/.ccache \
             -v "$PWD:/usr/src/tdesktop" \
             ghcr.io/telegramdesktop/tdesktop/centos_env:latest \
             bash -c "
-              mkdir -p /usr/src/tdesktop/out &&
-              chown -R root:root /usr/src/tdesktop &&
+              mkdir -p out .ccache &&
+              ccache -M 10G || true &&
+              export PATH=/usr/lib64/ccache:\$PATH &&
               /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
                 -D TDESKTOP_API_ID=2040 \
                 -D TDESKTOP_API_HASH=b18441a1ff607e10a989891a5462e627
             "
 
-      - name: Prepare Debian package structure
+      # ------------------------------------------------------------
+      # Fix permission after Docker
+      # ------------------------------------------------------------
+      - name: Fix permissions
+        run: |
+          sudo chown -R $USER:$USER .
+
+      # ------------------------------------------------------------
+      # Prepare Debian package
+      # ------------------------------------------------------------
+      - name: Prepare .deb structure
         run: |
           PKG=ayugram_${VERSION}_amd64
 
@@ -113,11 +165,17 @@ jobs:
            AyuGram is a custom Telegram Desktop client.
           EOF
 
-      - name: Build .deb package
+      # ------------------------------------------------------------
+      # Build .deb
+      # ------------------------------------------------------------
+      - name: Build .deb
         run: |
           fakeroot dpkg-deb --build ayugram_${VERSION}_amd64
           ls -lh *.deb
 
+      # ------------------------------------------------------------
+      # Release
+      # ------------------------------------------------------------
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
